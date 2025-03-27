@@ -2,39 +2,40 @@
 /* eslint-disable jsx-a11y/control-has-associated-label */
 import React, { useState, useEffect } from 'react';
 import { UserWarning } from './UserWarning';
-import { USER_ID } from './api/todos';
+import { getTodos, USER_ID_G } from './api/todos';
 import { Todo } from './types/Todo';
-import { client } from './utils/fetchClient';
+// import { client } from './utils/fetchClient';
+
+enum FilterType {
+  All = 'all',
+  Active = 'active',
+  Completed = 'completed',
+}
 
 export const App: React.FC = () => {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
-  const [filter, setFilter] = useState<'all' | 'active' | 'completed'>('all');
+  const [filter, setFilter] = useState<FilterType>(FilterType.All);
 
-  const loadTodos = () => {
-    if (!USER_ID) {
-      return;
+  const loadTodos = async (userId: number) => {
+    try {
+      setLoading(true);
+      setError('');
+      const data = await getTodos(userId);
+
+      setTodos(data);
+    } catch (err) {
+      setError((err as Error).message || 'Unable to load todos');
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(true);
-    setError('');
-
-    client
-      .get<Todo[]>(`todos?userId=${USER_ID}`)
-      .then(data => {
-        setTodos(data);
-      })
-      .catch(err => {
-        setError(err.message || 'Unable to load todos');
-      })
-      .finally(() => {
-        setLoading(false);
-      });
   };
 
   useEffect(() => {
-    loadTodos();
+    if (USER_ID_G) {
+      loadTodos(USER_ID_G);
+    }
   }, []);
 
   useEffect(() => {
@@ -49,7 +50,7 @@ export const App: React.FC = () => {
     return () => clearTimeout(timer);
   }, [error]);
 
-  if (!USER_ID) {
+  if (!USER_ID_G) {
     return <UserWarning />;
   }
 
@@ -58,19 +59,14 @@ export const App: React.FC = () => {
   };
 
   const filteredTodos = todos.filter(todo => {
-    if (filter === 'all') {
-      return true;
+    switch (filter) {
+      case FilterType.Active:
+        return !todo.completed;
+      case FilterType.Completed:
+        return todo.completed;
+      default:
+        return true;
     }
-
-    if (filter === 'active') {
-      return !todo.completed;
-    }
-
-    if (filter === 'completed') {
-      return todo.completed;
-    }
-
-    return true;
   });
 
   const handleTodoStatusChange = (id: number) => {
@@ -157,27 +153,27 @@ export const App: React.FC = () => {
             <nav className="filter" data-cy="Filter">
               <a
                 href="#/"
-                className={`filter__link ${filter === 'all' ? 'selected' : ''}`}
+                className={`filter__link ${filter === FilterType.All ? 'selected' : ''}`}
                 data-cy="FilterLinkAll"
-                onClick={() => setFilter('all')}
+                onClick={() => setFilter(FilterType.All)}
               >
                 All
               </a>
 
               <a
                 href="#/active"
-                className={`filter__link ${filter === 'active' ? 'selected' : ''}`}
+                className={`filter__link ${filter === FilterType.Active ? 'selected' : ''}`}
                 data-cy="FilterLinkActive"
-                onClick={() => setFilter('active')}
+                onClick={() => setFilter(FilterType.Active)}
               >
                 Active
               </a>
 
               <a
                 href="#/completed"
-                className={`filter__link ${filter === 'completed' ? 'selected' : ''}`}
+                className={`filter__link ${filter === FilterType.Completed ? 'selected' : ''}`}
                 data-cy="FilterLinkCompleted"
-                onClick={() => setFilter('completed')}
+                onClick={() => setFilter(FilterType.Completed)}
               >
                 Completed
               </a>
